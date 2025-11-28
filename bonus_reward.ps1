@@ -12,6 +12,7 @@ $env:PYTHONIOENCODING = "utf-8"
 $packagePath = "D:\bonus_reward"
 $scriptPath = ".\bonus_reward.py"
 $logPath = ".\logs\bonus_reward.log"
+$scriptOptions = "--force-restart --stop-chrome-on-exit"
 
 try {
     # Navigate to package directory
@@ -26,7 +27,7 @@ try {
     & "./venv/Scripts/Activate.ps1"
 
     # Execute Python script and redirect output only to log file
-    cmd /c  "python -u $scriptPath >> $logPath 2>&1"
+    cmd /c  "python -u $scriptPath $scriptOptions >> $logPath 2>&1"
     
     # Add completion message with timestamp
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
