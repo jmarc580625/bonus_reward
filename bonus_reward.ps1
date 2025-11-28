@@ -11,15 +11,15 @@ $env:PYTHONIOENCODING = "utf-8"
 # Define paths
 $packagePath = "D:\bonus_reward"
 $scriptPath = ".\bonus_reward.py"
-$logPath = ".\log\bonus_reward_logs.txt"
+$logPath = ".\logs\bonus_reward.log"
 
 try {
     # Navigate to package directory
     Push-Location $packagePath
 
     # Creates log directory if it did not exist
-    if (-not (Test-Path ".\log")) {
-        New-Item -ItemType Directory ".\log" | Out-Null
+    if (-not (Test-Path ".\logs")) {
+        New-Item -ItemType Directory ".\logs" | Out-Null
     }
     
     # Activate virtual environment

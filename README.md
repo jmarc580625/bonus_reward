@@ -22,11 +22,8 @@ The script:
 bonus_reward/
 ├─ bonus_reward.py        # Main Python script
 ├─ bonus_reward.ps1       # PowerShell wrapper
-├─ drivers/
-│  └─ chromedriver-win64/ # ChromeDriver binary (third‑party component)
-├─ logs/
-│  └─ bonus_reward_logs.txt
-└─ README.md
+├─ drivers/               # Driver files (third‑party component)
+└─ README.md              # This file
 ```
 ---
 ## Requirements

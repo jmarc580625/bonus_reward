@@ -31,9 +31,6 @@ ENV/
 *.swp
 *.swo
 
-# Logs
-logs/
-*.log
 
 # OS
 .DS_Store
@@ -43,7 +40,11 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Run time files and directories
-chrome_user_data/
-drivers/
-log/
+# Run time directory structure
+## Ignore driver files but keep the drivers directory
+drivers/*
+!drivers/.gitkeep
+## Ignore logs directory, created at runtime
+logs/
+## Ignore chrome_app_data directory, created at runtime
+chrome_app_data/

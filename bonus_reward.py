@@ -45,8 +45,8 @@ class DailyBonusClient:
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Store chrome user data under chrome_user_data folder next to this script.
-        self.user_data_dir = os.path.join(script_dir, "chrome_user_data")
+        # Store chrome user data under chrome_app_data folder next to this script.
+        self.user_data_dir = os.path.join(script_dir, "chrome_app_data")
 
         self.chrome_pid: int | None = None
 
