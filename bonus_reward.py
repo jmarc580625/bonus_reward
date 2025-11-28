@@ -542,12 +542,6 @@ def main():
         help="Start a fresh Chrome instance (i.e kill any running one)",
     )
     parser.add_argument(
-        "--reuse-chrome",
-        action="store_false",
-        dest="force_restart",
-        help="Attach to running Chrome instance if any",
-    )
-    parser.add_argument(
         "--stop-chrome-on-exit",
         action="store_true",
         help="Stop used Chrome instance when exiting",

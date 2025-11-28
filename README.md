@@ -103,13 +103,45 @@ Example output:
 ```powershell
 .\bonus_reward.ps1
 ```
-The wrapper runs 
-bonus_reward.py
- and appends a completion line to the log:
+The wrapper runs `bonus_reward.py`, redirects its messages in the log file and appends a completion line:
 
 ```text
 2025-11-27 12:15:12 [INFO] bonus_reward.ps1 - Script completed successfully
 ```
+
+---
+## Command Line Interface (CLI)
+
+The Python script accepts the following command line arguments:
+
+```bash
+python .\bonus_reward.py [OPTIONS]
+```
+
+### Available options
+
+- `--force-restart`
+  - Start a fresh Chrome instance (kills any running one on the debug port)
+  - Default: False (reuses existing Chrome if available)
+
+- `--stop-chrome-on-exit`
+  - Stop the Chrome instance when the script exits
+  - Default: False (leaves Chrome running)
+
+### Usage examples
+
+```bash
+# Default behavior - reuse existing Chrome, leave it running
+python .\bonus_reward.py
+
+# Force restart Chrome and stop it when done
+python .\bonus_reward.py --force-restart --stop-chrome-on-exit
+
+# Just stop Chrome when finished (default reuse behavior)
+python .\bonus_reward.py --stop-chrome-on-exit
+```
+
+Note: The PowerShell wrapper (`bonus_reward.ps1`) uses the default settings and does not expose these command line options.
 
 ---
 ## Runtime behaviour
@@ -129,6 +161,7 @@ Two options control Chrome lifecycle (configured in `bonus_reward.py`):
 - The script checks for the presence of the site login button.
 - When login is required, the script asks the user to perform a manual login, stops and leaves Chrome open.
 - Successful manual login is a prerequisite for the script to succeed.
+- Login information is made persistent by script's Chrome instance (in chrome_app_data) for `video.a2e.ai` to remember your successful login.
 
 ### Bonus dialog handling
 - The script first checks whether the daily bonus dialog is already visible.
@@ -146,7 +179,7 @@ Two options control Chrome lifecycle (configured in `bonus_reward.py`):
 
 ---
 ## Logs
-All activity is written to `logs/bonus_reward_logs.txt`.
+All activity is written to `logs/bonus_reward.log`.
 
 Example entries:
 
