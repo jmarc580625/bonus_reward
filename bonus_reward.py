@@ -81,47 +81,31 @@ class DailyBonusClient:
         finally:
             s.close()
 
-    def _kill_existing_chrome(self) -> bool:
-        """Attempt to close only the Chrome instance associated with this script.
-
-        Returns True if either nothing needed to be killed or a Chrome process was
-        successfully terminated; returns False if we detected a candidate process
-        but could not terminate it.
+    def _terminate_chrome_by_pid(self, pid: int) -> bool:
+        """Terminate Chrome process by PID using taskkill.
+        
+        Returns True on success, False otherwise.
         """
-        self.logger.info("Attempting to close Chrome associated with this script...")
-
-        # 1) Try using the PID stored in chrome.pid
-        if self.chrome_pid is None:
-            self._load_chrome_pid_from_file()
-
-        if self.chrome_pid is not None:
-            self.logger.info("Attempting to terminate Chrome by PID from pid file: %s", self.chrome_pid)
-            try:
-                result = subprocess.run(
-                    ["taskkill", "/F", "/PID", str(self.chrome_pid)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    time.sleep(2)
-                    return True
-                else:
-                    self.logger.warning(
-                        "taskkill for PID %s exited with code %s; will try fallback by port",
-                        self.chrome_pid,
-                        result.returncode,
-                    )
-            except Exception:
-                self.logger.exception("Error while stopping Chrome process with PID %s", self.chrome_pid)
-
-        # 2) Fallback: find the process listening on the debug port and kill it
-        self.logger.info(
-            "PID from pid file not usable. Trying to find Chrome by debug port %s...",
-            self.debug_port,
-        )
+        self.logger.info("Terminating Chrome PID %s", pid)
         try:
-            # netstat -ano to list connections and owning PIDs, filter by debug port
+            result = subprocess.run(
+                ["taskkill", "/F", "/PID", str(pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            if result.returncode == 0:
+                time.sleep(2)
+                return True
+            self.logger.warning("taskkill for PID %s exited with code %s", pid, result.returncode)
+        except Exception:
+            self.logger.exception("Error terminating Chrome PID %s", pid)
+        return False
+
+    def _find_pid_by_debug_port(self) -> int | None:
+        """Find PID of process listening on self.debug_port via netstat."""
+        self.logger.debug("Looking for process listening on port %s", self.debug_port)
+        try:
             result = subprocess.run(
                 ["netstat", "-ano", "-p", "TCP"],
                 stdout=subprocess.PIPE,
@@ -131,54 +115,30 @@ class DailyBonusClient:
                 errors="ignore",
                 check=False,
             )
-            pid_from_port: int | None = None
             for line in result.stdout.splitlines():
                 if f":{self.debug_port} " in line and "LISTENING" in line.upper():
                     parts = line.split()
                     if parts:
                         try:
-                            pid_from_port = int(parts[-1])
+                            return int(parts[-1])
                         except ValueError:
                             continue
-                    if pid_from_port is not None:
-                        self.chrome_pid = pid_from_port
-                        self._write_chrome_pid_to_file(pid_from_port)
-                        break
-
-            if pid_from_port is not None:
-                self.logger.info(
-                    "Attempting to terminate Chrome listening on port %s (PID %s)",
-                    self.debug_port,
-                    pid_from_port,
-                )
-                result = subprocess.run(
-                    ["taskkill", "/F", "/PID", str(pid_from_port)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    time.sleep(2)
-                    return True
-                else:
-                    self.logger.error(
-                        "taskkill for port-listening PID %s exited with code %s",
-                        pid_from_port,
-                        result.returncode,
-                    )
-                    return False
-            else:
-                self.logger.info(
-                    "No process found listening on port %s; nothing to terminate.",
-                    self.debug_port,
-                )
-                return True
         except Exception:
-            self.logger.exception(
-                "Error while trying to locate and stop Chrome process by debug port %s",
-                self.debug_port,
-            )
-            return False
+            self.logger.exception("Error finding process by debug port %s", self.debug_port)
+        return None
+
+    def _kill_existing_chrome(self) -> bool:
+        """Kill Chrome listening on self.debug_port.
+
+        Returns True if nothing to kill or successfully terminated;
+        False if termination failed.
+        """
+        self.logger.info("Attempting to close Chrome on debug port %s", self.debug_port)
+        pid = self._find_pid_by_debug_port()
+        if pid is None:
+            self.logger.info("No process found on port %s; nothing to kill", self.debug_port)
+            return True
+        return self._terminate_chrome_by_pid(pid)
 
     def _start_chrome(self) -> bool:
         """Start Chrome with remote debugging enabled (does not kill existing)."""
@@ -214,33 +174,22 @@ class DailyBonusClient:
         First try a graceful shutdown via Selenium / DevTools (Browser.close),
         then fall back to killing by PID from the pid file.
         """
-        # 1) Try to close via Selenium / DevTools
-        closed_via_selenium = False
+        # 1) Try graceful DevTools close
         if self.driver is not None:
             try:
-                self.logger.info("Trying to close Chrome via DevTools Browser.close")
+                self.logger.info("Closing Chrome via DevTools Browser.close")
                 self.driver.execute_cdp_cmd("Browser.close", {})
-                closed_via_selenium = True
-            except Exception:
-                self.logger.exception("Error while closing Chrome via DevTools")
-
-        # 2) If Selenium close failed, fall back to PID kill as before
-        if not closed_via_selenium:
-            if self.chrome_pid is None:
-                self._load_chrome_pid_from_file()
-            if self.chrome_pid is None:
-                self.logger.warning("No Chrome PID known; skipping PID-based stop")
                 return
-            try:
-                self.logger.info(f"Stopping Chrome started by the script using PID: {self.chrome_pid}")
-                subprocess.run(
-                    ["taskkill", "/F", "/PID", str(self.chrome_pid)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    check=False,
-                )
             except Exception:
-                self.logger.exception("Error while stopping Chrome process by PID")
+                self.logger.exception("DevTools close failed; falling back to PID kill")
+
+        # 2) Fallback to PID from file
+        if self.chrome_pid is None:
+            self._load_chrome_pid_from_file()
+        if self.chrome_pid is not None:
+            self._terminate_chrome_by_pid(self.chrome_pid)
+        else:
+            self.logger.warning("No Chrome PID known; skipping PID-based stop")
 
     def _load_chrome_pid_from_file(self) -> int | None:
         """Load Chrome PID from pid file into self.chrome_pid."""
