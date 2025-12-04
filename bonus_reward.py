@@ -97,9 +97,9 @@ class DailyBonusClient:
             if result.returncode == 0:
                 time.sleep(2)
                 return True
-            self.logger.warning("taskkill for PID %s exited with code %s", pid, result.returncode)
+            self.logger.warning("-taskkill for PID %s exited with code %s", pid, result.returncode)
         except Exception:
-            self.logger.exception("Error terminating Chrome PID %s", pid)
+            self.logger.exception("-Error terminating Chrome PID %s", pid)
         return False
 
     def _find_pid_by_debug_port(self) -> int | None:
@@ -124,7 +124,7 @@ class DailyBonusClient:
                         except ValueError:
                             continue
         except Exception:
-            self.logger.exception("Error finding process by debug port %s", self.debug_port)
+            self.logger.exception("-Error finding process by debug port %s", self.debug_port)
         return None
 
     def _kill_existing_chrome(self) -> bool:
@@ -136,7 +136,7 @@ class DailyBonusClient:
         self.logger.info("Attempting to close Chrome on debug port %s", self.debug_port)
         pid = self._find_pid_by_debug_port()
         if pid is None:
-            self.logger.info("No process found on port %s; nothing to kill", self.debug_port)
+            self.logger.info("-No process found on port %s; nothing to kill", self.debug_port)
             return True
         return self._terminate_chrome_by_pid(pid)
 
@@ -162,10 +162,10 @@ class DailyBonusClient:
         # Wait for Chrome to start
         for _ in range(10):
             if self._verify_debug_port():
-                self.logger.info("Chrome started successfully")
+                self.logger.info("-Chrome started successfully")
                 return True
             time.sleep(1)
-        self.logger.error("Chrome did not start within timeout")
+        self.logger.error("-Chrome did not start within timeout")
         return False
 
     def _stop_chrome(self) -> None:
@@ -181,7 +181,7 @@ class DailyBonusClient:
                 self.driver.execute_cdp_cmd("Browser.close", {})
                 return
             except Exception:
-                self.logger.exception("DevTools close failed; falling back to PID kill")
+                self.logger.exception("-DevTools close failed; falling back to PID kill")
 
         # 2) Fallback to PID from file
         if self.chrome_pid is None:
@@ -189,7 +189,7 @@ class DailyBonusClient:
         if self.chrome_pid is not None:
             self._terminate_chrome_by_pid(self.chrome_pid)
         else:
-            self.logger.warning("No Chrome PID known; skipping PID-based stop")
+            self.logger.warning("-No Chrome PID known; skipping PID-based stop")
 
     def _load_chrome_pid_from_file(self) -> int | None:
         """Load Chrome PID from pid file into self.chrome_pid."""
@@ -265,10 +265,10 @@ class DailyBonusClient:
                     )
                 )
             )
-            self.logger.info("Claim dialog is already visible")
+            self.logger.info("-Claim dialog is already visible")
             return dialog
         except TimeoutException:
-            self.logger.debug("Claim dialog is not visible yet")
+            self.logger.debug("-Claim dialog is not visible yet")
             return None
 
     def _open_claim_dialog_via_trigger(self):
@@ -290,19 +290,19 @@ class DailyBonusClient:
             # Log a snippet of the right section HTML so we can inspect the DOM
             try:
                 html = right_section.get_attribute("outerHTML")
-                self.logger.warning(
+                self.logger.debug(
                     "Bonus trigger element not found. right_section HTML snippet: %s",
                     html[:1000],
                 )
             except Exception:
-                self.logger.exception("Failed to capture right_section HTML when trigger was missing")
+                self.logger.exception("-Failed to capture right_section HTML when trigger was missing")
             return None
 
-        self.logger.debug("Moving mouse to bonus trigger")
+        self.logger.debug("-Moving mouse to bonus trigger")
         actions = ActionChains(self.driver)
         actions.move_to_element(bonus_trigger).pause(0.5).perform()
 
-        self.logger.info("Clicking bonus trigger")
+        self.logger.info("-Clicking bonus trigger")
         actions.click(bonus_trigger).perform()
 
         try:
@@ -311,7 +311,7 @@ class DailyBonusClient:
             if not self.force_restart:
                 timeout = 15  # background / reused instance is more likely here
 
-            self.logger.info("Waiting for claim dialog to open")
+            self.logger.info("--Waiting for claim dialog to open")
             dialog = WebDriverWait(self.driver, timeout).until(
                 EC.visibility_of_element_located(
                     (
@@ -320,15 +320,15 @@ class DailyBonusClient:
                     )
                 )
             )
-            self.logger.info("Claim dialog is open")
+            self.logger.info("--Claim dialog is open")
             return dialog
         except TimeoutException:
-            self.logger.warning(f"Claim dialog did not show up within {timeout} seconds")
+            self.logger.warning(f"--Claim dialog did not show up within {timeout} seconds")
             try:
                 html = self.driver.page_source
                 self.logger.debug("Page HTML snippet after click:\n%s", html[:2000])
             except Exception:
-                self.logger.exception("Failed to capture page HTML after bonus click")
+                self.logger.exception("--Failed to capture page HTML after bonus click")
             return None
 
     def _parse_dialog_message(self, dialog) -> str:
@@ -341,7 +341,7 @@ class DailyBonusClient:
         except Exception:
             dialog_message = ""
 
-        self.logger.debug("Claim dialog message:\n%s\n", dialog_message)
+        self.logger.debug("-Claim dialog message:\n%s\n", dialog_message)
         return dialog_message.strip()
 
     def _handle_cooldown_if_any(self, dialog_message: str) -> bool:
@@ -362,7 +362,7 @@ class DailyBonusClient:
 
         try:
             next_time_claim = datetime.strptime(next_time_claim_text, "%m/%d/%Y %H:%M")
-            self.logger.warning("Daily cannot be claimed before %s", next_time_claim)
+            self.logger.warning("Next claim cannot be before %s", next_time_claim)
         except ValueError:
             self.logger.warning("Could not parse next claim time: %r", next_time_claim_text)
 
@@ -377,16 +377,16 @@ class DailyBonusClient:
                 By.XPATH,
                 ".//button[contains(@class,'aae-ant-btn-primary')]"
             )
-            self.logger.debug("Claim button text: %r", claim_btn.text)
+            self.logger.debug("-Claim button text: %r", claim_btn.text)
 
-            self.logger.info("Clicking claim button via JavaScript")
+            self.logger.info("-Clicking claim button via JavaScript")
             # Click via JS to avoid mouse-move closing the dialog
             self.driver.execute_script("arguments[0].click();", claim_btn)
 
-            self.logger.info("Successfully clicked claim button")
+            self.logger.info("--Successfully clicked claim button")
             return True
         except Exception:
-            self.logger.exception("Error when trying to click claim button")
+            self.logger.exception("--Error when trying to click claim button")
             return False
 
     def claim_daily_bonus(self) -> bool:
@@ -411,7 +411,7 @@ class DailyBonusClient:
             return self._click_claim_button(dialog)
 
         except Exception:
-            self.logger.exception("Unexpected error during bonus claim")
+            self.logger.exception("-Unexpected error during bonus claim")
             return False
 
     # ---------- High-level orchestration ----------
@@ -424,30 +424,30 @@ class DailyBonusClient:
                 self.logger.info("Option force_restart=True")
                 if not self._kill_existing_chrome():
                     self.logger.error(
-                        "Failed to stop existing Chrome instance; aborting."
+                        "-Failed to stop existing Chrome instance; aborting."
                     )
                     return
                 if not self._start_chrome():
                     self.logger.error(
-                        "Failed to start Chrome. Please check if Chrome is installed."
+                        "-Failed to start Chrome. Please check if Chrome is installed."
                     )
                     return
-                self.logger.info("Restarting Chrome with remote debugging on port %s", self.debug_port)
+                self.logger.info("-Restarting Chrome with remote debugging on port %s", self.debug_port)
             else:
                 self.logger.info("Option force_restart=False")
                 if self._verify_debug_port():
                     self.logger.info(
-                        "Port %s is open; Reusing existing Chrome instance through this debug port",
+                        "-Port %s is open; Reusing existing Chrome instance through this debug port",
                         self.debug_port,
                     )
                 else:
                     self.logger.info(
-                        "Port %s is not open; starting a new Chrome instance",
+                        "-Port %s is not open; starting a new Chrome instance",
                         self.debug_port,
                     )
                     if not self._start_chrome():
                         self.logger.error(
-                            "Failed to start Chrome. Please check if Chrome is installed."
+                            "-Failed to start Chrome. Please check if Chrome is installed."
                         )
                         return
 
@@ -461,12 +461,13 @@ class DailyBonusClient:
             if self._check_login_required():
                 self.logger.info("Login required")
                 if not self._wait_for_manual_login():
-                    self.logger.warning("Login in manually before restarting the script")
+                    self.logger.warning("-Login in manually before restarting the script")
                     return
 
             # Attempt to claim bonus
             if self.claim_daily_bonus():
                 self.logger.info("Daily bonus claim sequence completed successfully")
+                time.sleep(2)
             else:
                 self.logger.info("Failed to complete bonus claim sequence")
 
@@ -481,7 +482,7 @@ class DailyBonusClient:
                 try:
                     self.driver.quit()
                 except Exception:
-                    self.logger.exception("Error while quitting WebDriver")
+                    self.logger.exception("-Error while quitting WebDriver")
 
 def main():
     parser = argparse.ArgumentParser()
